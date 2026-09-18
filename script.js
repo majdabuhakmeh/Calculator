@@ -86,27 +86,28 @@ function operate(operator, a, b) {
 }
 
 function calculate() {
-    const operands = screen.value.split(/[+\-*\/]/);
-    const operators = screen.value.match(/[+\-*\/]/g) || [];
-    const op1 = parseFloat(operands[0]);
+    // Lookbehind (?<=[0-9.]) means: only treat +-*/ as an operator
+    // when it comes right after a digit or decimal point. That way
+    // a leading "-" (a negative number, e.g. from +/-) stays attached
+    // to its number instead of being split off into an empty operand.
+    const operands = screen.value.split(/(?<=[0-9.])[+\-*/]/);
+    const operators = screen.value.match(/(?<=[0-9.])[+\-*/]/g) || [];
 
-    // NOTE: was `const result` scoped only inside the loop, so
-    // updateScreen(result) below threw a ReferenceError. Declaring
-    // it here keeps the rest of your logic exactly as you wrote it.
-    let result = op1;
+    // `current` carries the running total forward into each step,
+    // instead of always reusing the first operand.
+    let current = parseFloat(operands[0]);
 
     for (let i = 0; i < operators.length; i++) {
         // Stop when an operator has no following operand.
         if (i + 1 >= operands.length || operands[i + 1] === '') break;
 
         const nextOperand = parseFloat(operands[i + 1]);
-        result = operate(operators[i], op1, nextOperand);
-
-        if(history.length >= 4) history.pop();
-        history.push({ operation: `${op1} ${operators[i]} ${nextOperand}`, result: result });
+        // operate() -> add/subtract/multiply/divide already updates
+        // the screen and pushes its own history entry, so we don't
+        // duplicate that here.
+        current = operate(operators[i], current, nextOperand);
     }
 
-    updateScreen(result);
     updateHistoryScreen();
 }
 
