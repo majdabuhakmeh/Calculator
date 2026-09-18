@@ -109,6 +109,13 @@ body {
   font-size: 30px;
 }
 
+.key--placeholder {
+  background: transparent;
+  cursor: default;
+  visibility: hidden;
+  pointer-events: none;
+}
+
 .key--op:active,
 .key--op.is-active {
   background: var(--op-bg-active);

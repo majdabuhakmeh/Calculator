@@ -113,7 +113,9 @@ function calculate() {
 
 // --- Button wiring: classic calculator UI -> your existing logic ---
 
-document.querySelectorAll('.key[data-value]').forEach((button) => {
+const valueButtons = document.querySelectorAll('.key[data-value]');
+for (let i = 0; i < valueButtons.length; i++) {
+    const button = valueButtons[i];
     button.addEventListener('click', () => {
         if (screen.value === '0' || screen.value === '') {
             screen.value = button.dataset.value === '.' ? '0.' : button.dataset.value;
@@ -122,9 +124,11 @@ document.querySelectorAll('.key[data-value]').forEach((button) => {
         }
         updateScreen(screen.value);
     });
-});
+}
 
-document.querySelectorAll('.key--op[data-action]').forEach((button) => {
+const operatorButtons = document.querySelectorAll('.key--op[data-action]');
+for (let i = 0; i < operatorButtons.length; i++) {
+    const button = operatorButtons[i];
     button.addEventListener('click', () => {
         const action = button.dataset.action;
         if (action === '=') {
@@ -133,9 +137,11 @@ document.querySelectorAll('.key--op[data-action]').forEach((button) => {
             screen.value += action;
         }
     });
-});
+}
 
-document.querySelectorAll('.key--fn[data-action]').forEach((button) => {
+const functionButtons = document.querySelectorAll('.key--fn[data-action]');
+for (let i = 0; i < functionButtons.length; i++) {
+    const button = functionButtons[i];
     button.addEventListener('click', () => {
         const action = button.dataset.action;
         if (action === 'clear') {
@@ -147,4 +153,4 @@ document.querySelectorAll('.key--fn[data-action]').forEach((button) => {
             if (screen.value) screen.value = String(parseFloat(screen.value) / 100);
         }
     });
-});
+}
