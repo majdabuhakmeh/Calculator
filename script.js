@@ -149,6 +149,8 @@ for (let i = 0; i < functionButtons.length; i++) {
       clearHistory();
     } else if (action === "backspace") {
       backspaceEvent();
+    } else if (action === "clear-entry") {
+      clearScreen();
     } else if (action === "sign") {
       if (screen.value) screen.value = String(parseFloat(screen.value) * -1);
     } else if (action === "percent") {
