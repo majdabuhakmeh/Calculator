@@ -3,46 +3,50 @@ let history = [];
 const screen = document.querySelector("#screen");
 const historyScreen = document.querySelector("#history");
 const decimalButton = document.querySelector("#decimal");
+const roundToTwo = (value) => Number(value.toFixed(2));
 
 document.addEventListener("keydown", (event) => {
   if (event.key === "Backspace") backspaceEvent();
 });
 
 const add = (a, b) => {
+  const result = roundToTwo(a + b);
   if (history.length >= 4) history.pop();
-  history.push({ operation: `${a} + ${b}`, result: a + b });
-  updateScreen(a + b);
-  return a + b;
+  history.push({ operation: `${a} + ${b}`, result });
+  updateScreen(result);
+  return result;
 };
 const subtract = (a, b) => {
+  const result = roundToTwo(a - b);
   if (history.length >= 4) history.pop();
-  history.push({ operation: `${a} - ${b}`, result: a - b });
-  updateScreen(a - b);
-  return a - b;
+  history.push({ operation: `${a} - ${b}`, result });
+  updateScreen(result);
+  return result;
 };
 const multiply = (a, b) => {
+  const result = roundToTwo(a * b);
   if (history.length >= 4) history.pop();
-  history.push({ operation: `${a} * ${b}`, result: a * b });
-  updateScreen(a * b);
-  return a * b;
+  history.push({ operation: `${a} * ${b}`, result });
+  updateScreen(result);
+  return result;
 };
 const divide = (a, b) => {
-  try {
-    if (history.length >= 4) history.pop();
-    history.push({ operation: `${a} / ${b}`, result: a / b });
-    updateScreen(a / b);
-    return a / b;
-  } catch (error) {
-    console.error(error.message);
-    updateScreen("Error: Division by zero");
-    return Infinity;
+  if (b === 0) {
+    updateScreen('Error: Division by zero');
+    return NaN;
   }
+
+  const result = roundToTwo(a / b);
+  if(history.length >= 4) history.pop();
+  history.push({ operation: `${a} / ${b}`, result });
+  updateScreen(result);
+  return result;
 };
 
 const updateScreen = (value) => {
-  if (String(screen.value).includes(".")) decimalButton.disabled = true;
-  else decimalButton.disabled = false;
   screen.value = value;
+  const currentOperand = String(value).match(/(?:^|[+\-*/])([^+\-*/]*)$/)?.[1] || "";
+  decimalButton.disabled = currentOperand.includes(".");
 };
 
 const backspaceEvent = () => {
@@ -86,28 +90,30 @@ function operate(operator, a, b) {
 }
 
 function calculate() {
-  // Lookbehind (?<=[0-9.]) means: only treat +-*/ as an operator
-  // when it comes right after a digit or decimal point. That way
-  // a leading "-" (a negative number, e.g. from +/-) stays attached
-  // to its number instead of being split off into an empty operand.
-  const operands = screen.value.split(/(?<=[0-9.])[+\-*/]/);
-  const operators = screen.value.match(/(?<=[0-9.])[+\-*/]/g) || [];
+  const tokens = screen.value.match(/\d*\.?\d+|[+\-*/]/g) || [];
+  const operands = tokens
+    .filter((token) => !['+', '-', '*', '/'].includes(token))
+    .map(Number);
+  const operators = tokens.filter((token) => ['+', '-', '*', '/'].includes(token));
 
-  // `current` carries the running total forward into each step,
-  // instead of always reusing the first operand.
-  let current = parseFloat(operands[0]);
+  if (operands.length === 0) return;
 
-  for (let i = 0; i < operators.length; i++) {
-    // Stop when an operator has no following operand.
-    if (i + 1 >= operands.length || operands[i + 1] === "") break;
-
-    const nextOperand = parseFloat(operands[i + 1]);
-    // operate() -> add/subtract/multiply/divide already updates
-    // the screen and pushes its own history entry, so we don't
-    // duplicate that here.
-    current = operate(operators[i], current, nextOperand);
+  // Resolve multiplication and division before addition and subtraction.
+  for (let i = operators.length - 1; i >= 0; i--) {
+    if (operators[i] === '*' || operators[i] === '/') {
+      operands[i] = operate(operators[i], operands[i], operands[i + 1]);
+      operands.splice(i + 1, 1);
+      operators.splice(i, 1);
+    }
   }
 
+  let current = operands[0];
+  for (let i = 0; i < operators.length; i++) {
+    current = operate(operators[i], current, operands[i + 1]);
+    if (Number.isNaN(current)) return;
+  }
+
+  updateScreen(roundToTwo(current));
   updateHistoryScreen();
 }
 
@@ -135,6 +141,7 @@ for (let i = 0; i < operatorButtons.length; i++) {
       calculate();
     } else {
       screen.value += action;
+      updateScreen(screen.value);
     }
   });
 }
