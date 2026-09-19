@@ -90,7 +90,23 @@ function operate(operator, a, b) {
 }
 
 function calculate() {
-  const tokens = screen.value.match(/\d*\.?\d+|[+\-*/]/g) || [];
+  const rawTokens = screen.value.match(/\d*\.?\d+|[+\-*/]/g) || [];
+  const tokens = [];
+  for (let i = 0; i < rawTokens.length; i++) {
+    const token = rawTokens[i];
+    const previousToken = tokens[tokens.length - 1];
+    const isUnaryMinus =
+      token === "-" &&
+      (tokens.length === 0 || ["+", "-", "*", "/"].includes(previousToken)) &&
+      rawTokens[i + 1] !== undefined &&
+      !["+", "-", "*", "/"].includes(rawTokens[i + 1]);
+
+    if (isUnaryMinus) {
+      tokens.push(`-${rawTokens[++i]}`);
+    } else {
+      tokens.push(token);
+    }
+  }
   const operands = tokens
     .filter((token) => !['+', '-', '*', '/'].includes(token))
     .map(Number);
