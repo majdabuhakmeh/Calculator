@@ -5,10 +5,6 @@ const historyScreen = document.querySelector("#history");
 const decimalButton = document.querySelector("#decimal");
 const roundToTwo = (value) => Number(value.toFixed(2));
 
-document.addEventListener("keydown", (event) => {
-  if (event.key === "Backspace") backspaceEvent();
-});
-
 const add = (a, b) => {
   const result = roundToTwo(a + b);
   if (history.length >= 4) history.pop();
@@ -45,13 +41,31 @@ const divide = (a, b) => {
 
 const updateScreen = (value) => {
   screen.value = value;
+  
+  // Adjust font size dynamically to prevent overflow
+  const len = String(value).length;
+  if (len > 15) {
+    screen.style.fontSize = "24px";
+  } else if (len > 11) {
+    screen.style.fontSize = "32px";
+  } else if (len > 8) {
+    screen.style.fontSize = "44px";
+  } else {
+    screen.style.fontSize = ""; // reset to CSS default
+  }
+
   const currentOperand = String(value).match(/(?:^|[+\-*/])([^+\-*/]*)$/)?.[1] || "";
   decimalButton.disabled = currentOperand.includes(".");
 };
 
 const backspaceEvent = () => {
+  if (screen.value.startsWith("Error")) {
+    clearScreen();
+    return;
+  }
   if (screen.value.length > 0) {
     screen.value = screen.value.slice(0, -1);
+    if (screen.value === "") screen.value = "0";
     updateScreen(screen.value);
   }
 };
@@ -64,6 +78,42 @@ const clearHistory = () => {
   history = [];
   updateHistoryScreen();
 };
+
+const appendValue = (value) => {
+  if (value === "." && decimalButton.disabled) return;
+
+  if (screen.value === "0" || screen.value === "" || screen.value.startsWith("Error")) {
+    screen.value = value === "." ? "0." : value;
+  } else if (value === "." && /[+\-*/]$/.test(screen.value)) {
+    screen.value += "0.";
+  } else {
+    screen.value += value;
+  }
+  updateScreen(screen.value);
+};
+
+const appendOperator = (operator) => {
+  const expression = screen.value;
+  if (!expression || expression === "Error: Division by zero") return;
+
+  const operatorMatch = expression.match(/^(-?(?:\d+\.?\d*|\.\d+))([+\-*/])(.*)$/);
+
+  if (operatorMatch) {
+    if (operatorMatch[3] === "") {
+      screen.value = expression.slice(0, -1) + operator;
+    } else {
+      calculate();
+      if (screen.value !== "Error: Division by zero" && !Number.isNaN(Number(screen.value))) {
+        screen.value += operator;
+      }
+    }
+  } else {
+    screen.value += operator;
+  }
+
+  updateScreen(screen.value);
+};
+
 const updateHistoryScreen = () => {
   historyScreen.innerHTML = "";
   for (let i = 0; i < history.length; i++) {
@@ -90,7 +140,13 @@ function operate(operator, a, b) {
 }
 
 function calculate() {
-  const rawTokens = screen.value.match(/\d*\.?\d+|[+\-*/]/g) || [];
+  const expression = screen.value;
+  if (!expression || expression.startsWith("Error")) return;
+
+  // Don't calculate if the expression is incomplete (ends with an operator)
+  if (/[+\-*/]$/.test(expression)) return;
+
+  const rawTokens = expression.match(/\d*\.?\d+|[+\-*/]/g) || [];
   const tokens = [];
   for (let i = 0; i < rawTokens.length; i++) {
     const token = rawTokens[i];
@@ -117,13 +173,17 @@ function calculate() {
   // Resolve multiplication and division before addition and subtraction.
   for (let i = operators.length - 1; i >= 0; i--) {
     if (operators[i] === '*' || operators[i] === '/') {
-      operands[i] = operate(operators[i], operands[i], operands[i + 1]);
+      const res = operate(operators[i], operands[i], operands[i + 1]);
+      if (Number.isNaN(res)) return; // Stop if Error occurred (e.g. division by zero)
+      operands[i] = res;
       operands.splice(i + 1, 1);
       operators.splice(i, 1);
     }
   }
 
   let current = operands[0];
+  if (Number.isNaN(current)) return;
+
   for (let i = 0; i < operators.length; i++) {
     current = operate(operators[i], current, operands[i + 1]);
     if (Number.isNaN(current)) return;
@@ -133,18 +193,51 @@ function calculate() {
   updateHistoryScreen();
 }
 
+document.addEventListener("keydown", (event) => {
+  if (event.ctrlKey || event.metaKey || event.altKey) return;
+
+  const keyMap = {
+    "+": '.key--op[data-action="+"]',
+    "-": '.key--op[data-action="-"]',
+    "*": '.key--op[data-action="*"]',
+    "x": '.key--op[data-action="*"]',
+    "X": '.key--op[data-action="*"]',
+    "/": '.key--op[data-action="/"]',
+    "=": '.key--op[data-action="="]',
+    "Enter": '.key--op[data-action="="]',
+    "Backspace": '.key--fn[data-action="backspace"]',
+    "Escape": '.key--fn[data-action="clear"]',
+    "c": '.key--fn[data-action="clear"]',
+    "C": '.key--fn[data-action="clear"]',
+    "Delete": '.key--fn[data-action="clear-entry"]'
+  };
+
+  let selector = keyMap[event.key];
+  
+  // Explicitly support all digits and decimal point
+  if (/^\d$/.test(event.key) || event.key === ".") {
+    selector = `.key[data-value="${event.key}"]`;
+  }
+
+  if (selector) {
+    event.preventDefault();
+    const button = document.querySelector(selector);
+    if (button) {
+      button.click();
+      button.classList.add("is-active");
+      setTimeout(() => button.classList.remove("is-active"), 100);
+    }
+  }
+});
+
 // --- Button wiring: classic calculator UI -> your existing logic ---
 
 const valueButtons = document.querySelectorAll(".key[data-value]");
 for (let i = 0; i < valueButtons.length; i++) {
   const button = valueButtons[i];
   button.addEventListener("click", () => {
-    if (screen.value === "0" || screen.value === "") {
-      screen.value = button.dataset.value === "." ? "0." : button.dataset.value;
-    } else {
-      screen.value += button.dataset.value;
-    }
-    updateScreen(screen.value);
+    appendValue(button.dataset.value);
+    button.blur();
   });
 }
 
@@ -154,11 +247,11 @@ for (let i = 0; i < operatorButtons.length; i++) {
   button.addEventListener("click", () => {
     const action = button.dataset.action;
     if (action === "=") {
-      calculate();
+        calculate();
     } else {
-      screen.value += action;
-      updateScreen(screen.value);
+      appendOperator(action);
     }
+    button.blur();
   });
 }
 
@@ -179,5 +272,6 @@ for (let i = 0; i < functionButtons.length; i++) {
     } else if (action === "percent") {
       if (screen.value) screen.value = String(parseFloat(screen.value) / 100);
     }
+    button.blur();
   });
 }
